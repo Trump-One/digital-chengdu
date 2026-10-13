@@ -1,4 +1,6 @@
 export type Building = {
+  landmark?: "funian";
+  referenceUrl?: string;
   id: string;
   name: string;
   kind: string;
@@ -53,6 +55,7 @@ export type SceneOptions = {
 };
 export type SceneApi = {
   setOptions: (options: SceneOptions) => void;
+  visit: (view: "entrance" | "courtyard") => void;
   focus: (id: string) => void;
   reset: () => void;
   zoom: (direction: number) => void;

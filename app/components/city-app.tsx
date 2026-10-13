@@ -47,7 +47,8 @@ import type {
   SceneOptions,
   SceneApi,
 } from "../../lib/types";
-const street = rawStreet as Street;
+import { applyFunianOverlay } from "../../lib/landmarks";
+const street = applyFunianOverlay(rawStreet as Street);
 const defaultOptions: SceneOptions = {
   mode: "overview",
   trees: true,
@@ -138,6 +139,9 @@ export default function CityApp() {
     "explore" | "layers" | "community" | "about" | "building" | "contribute"
   >("explore");
   const [panelOpen, setPanelOpen] = useState(true);
+  const [viewpoint, setViewpoint] = useState<"entrance" | "courtyard" | null>(
+    null,
+  );
   const [selected, setSelected] = useState<Building | null>(null);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -184,7 +188,16 @@ export default function CityApp() {
   }, [choose, notify]);
   useEffect(() => {
     api.current?.setOptions(options);
-  }, [options]);
+  }, [options, ready]);
+  useEffect(() => {
+    if (options.mode === "walk" && viewpoint) api.current?.visit(viewpoint);
+  }, [viewpoint, options.mode, ready]);
+  function visit(view: "entrance" | "courtyard") {
+    setOptions((o) => ({ ...o, mode: "walk" }));
+    setViewpoint(view);
+    if (options.mode === "walk") api.current?.visit(view);
+    setPanelOpen(false);
+  }
   useEffect(() => {
     panelRef.current?.scrollTo({ top: 0 });
   }, [panel, selected]);
@@ -437,10 +450,28 @@ export default function CityApp() {
               天府三街<span>从这一条街，走进成都。</span>
             </h1>
             <p className="intro">
-              沿街走走，认识一栋建筑，
+              这一站，花样年福年广场。
               <br />
-              也为这座城市留下你的发现。
+              走近格框幕墙，穿过楼下的内院。
             </p>
+            <div className="landmark-visit">
+              <button
+                className="primary full"
+                onClick={() => visit("entrance")}
+              >
+                <Footprints size={18} />
+                走到福年广场入口
+                <ArrowRight size={17} />
+              </button>
+              <button
+                className="secondary full"
+                onClick={() => visit("courtyard")}
+              >
+                <View size={18} />
+                进入双塔内院
+              </button>
+              <p className="subtle">参照外观重建 · 尺寸与街景细节待实测</p>
+            </div>
             <div className="street-stat">
               <span>
                 <b>
@@ -459,6 +490,7 @@ export default function CityApp() {
             <button
               className="start-walk primary"
               onClick={() => {
+                setViewpoint(null);
                 setOptions((o) => ({ ...o, mode: "walk" }));
                 setPanelOpen(false);
               }}
@@ -482,9 +514,11 @@ export default function CityApp() {
                   <span>
                     <strong>{b.name}</strong>
                     <small>
-                      {b.levels
-                        ? `${b.levels} 层 · 开放地图标注`
-                        : "建筑资料待补充"}
+                      {b.landmark
+                        ? "福年广场外观重建 · 可步行探索"
+                        : b.levels
+                          ? `${b.levels} 层 · 开放地图标注`
+                          : "建筑资料待补充"}
                     </small>
                   </span>
                   <ArrowUpRight size={16} />
@@ -517,7 +551,11 @@ export default function CityApp() {
               <Building2 size={40} />
             </div>
             <h2 className="panel-heading">{selected.name}</h2>
-            <p className="description">天府三街示范区内的开放地图建筑</p>
+            <p className="description">
+              {selected.landmark
+                ? "吉泰路 666 号 · 福年广场外观重建"
+                : "天府三街示范区内的开放地图建筑"}
+            </p>
             <dl className="facts">
               <div>
                 <dt>建筑轮廓</dt>
@@ -537,13 +575,38 @@ export default function CityApp() {
               </div>
               <div>
                 <dt>外墙与窗户</dt>
-                <dd>示意材质，待完善</dd>
+                <dd>
+                  {selected.landmark
+                    ? "参照实拍重建，非实景扫描"
+                    : "示意材质，待完善"}
+                </dd>
               </div>
             </dl>
             <p className="notice">
-              轮廓来自开放街图；外墙、树木与道路铺装为示意。楼层估算使用每层 3.2
-              米，不代表实测高度。
+              {selected.landmark
+                ? "轮廓来自开放街图；楼群对应、幕墙分格与入口参照公开照片重建，尚未逐栋实测校准。双塔按公开资料约 160 米显示，原始地图楼层数保留在下载数据中。商铺、车辆和景观为示意。"
+                : "轮廓来自开放街图；外墙、树木与道路铺装为示意。楼层估算使用每层 3.2 米，不代表实测高度。"}
             </p>
+            {selected.landmark && (
+              <>
+                <button
+                  className="secondary full"
+                  onClick={() => visit("courtyard")}
+                >
+                  <Footprints size={16} />
+                  在福年广场内院漫游
+                </button>
+                <a
+                  className="source-link"
+                  href={selected.referenceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  查看外观参考资料
+                  <ExternalLink size={13} />
+                </a>
+              </>
+            )}
             <button
               className="primary full"
               onClick={() => contribute(selected)}
@@ -605,7 +668,7 @@ export default function CityApp() {
                 {
                   key: "labels",
                   title: "建筑名称",
-                  detail: "仅显示地图中已有名称",
+                  detail: "开放地图名称与注明来源的楼群名称",
                   icon: MapPin,
                 },
                 {
@@ -797,9 +860,24 @@ export default function CityApp() {
               道路走向、建筑轮廓、地图已有的名称与楼层数来自
               OpenStreetMap。数据可能有缺漏，现场情况以实地为准。
             </p>
+            <h3>福年广场外观重建</h3>
+            <p className="description">
+              根据公开外观照片与位置资料匹配楼群，补充双塔格框幕墙、裙楼、入口雨棚和内院。双塔暂按资料中的约
+              160
+              米显示，非实测成果。楼栋编号暂未确认，因此使用临街、北侧等方位名称。
+            </p>
+            <a
+              className="source-link"
+              href="https://www.funianob.cn/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              楼群位置与外观参考
+              <ExternalLink size={13} />
+            </a>
             <h3>仍需要大家完善</h3>
             <p className="description">
-              外墙与窗户、树木位置、道路铺装为示意效果；地面暂按平面展示。没有楼层或高度记录的建筑使用
+              幕墙分格细节、商铺、树木位置、车辆和铺装为重建示意，不是现场扫描；地面暂按平面展示。没有楼层或高度记录的普通建筑使用
               24 米示范高度。
             </p>
             <h3>更新与替换</h3>
@@ -996,7 +1074,7 @@ export default function CityApp() {
       </aside>
       <div className="scene-caption">
         <span className="caption-dot" />
-        开放地图建筑轮廓<span className="caption-separator">/</span>外观为示意
+        真实地图轮廓<span className="caption-separator">/</span>福年广场外观重建
         {options.preview && (
           <button onClick={() => setOptions((o) => ({ ...o, preview: null }))}>
             正在预览未核实提案
@@ -1066,6 +1144,7 @@ export default function CityApp() {
         <button
           className={options.mode === "walk" ? "selected" : ""}
           onClick={() => {
+            setViewpoint(null);
             setOptions((o) => ({ ...o, mode: "walk" }));
             setPanelOpen(false);
           }}

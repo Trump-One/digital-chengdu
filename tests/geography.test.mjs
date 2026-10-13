@@ -35,3 +35,38 @@ test("footprint collision distinguishes interior and exterior", () => {
   assert.equal(inside(5, 5, square), true);
   assert.equal(inside(12, 5, square), false);
 });
+
+test("Funian reconstruction preserves source data and keeps every viewpoint walkable", async () => {
+  const { applyFunianOverlay, FUNIAN_IDS, FUNIAN_VIEWS } =
+    await import("../lib/landmarks.ts");
+  const before = JSON.stringify(street);
+  const detailed = applyFunianOverlay(street);
+  assert.equal(
+    JSON.stringify(street),
+    before,
+    "source snapshot must not be rewritten",
+  );
+  assert.equal(detailed.buildings.filter((b) => b.landmark).length, 5);
+  for (const id of FUNIAN_IDS) {
+    const original = street.buildings.find((b) => b.id === id);
+    const rebuilt = detailed.buildings.find((b) => b.id === id);
+    assert.deepEqual(rebuilt.points, original.points);
+    assert.deepEqual(rebuilt.tags, original.tags);
+    assert.ok(rebuilt.referenceUrl);
+  }
+  for (const v of Object.values(FUNIAN_VIEWS)) {
+    assert.equal(
+      detailed.buildings.some((b) =>
+        inside(v.position[0], v.position[2], b.points),
+      ),
+      false,
+    );
+  }
+  for (let x = -205; x <= -125; x++) {
+    assert.equal(
+      detailed.buildings.some((b) => inside(x, -92, b.points)),
+      false,
+      `Courtyard path blocked at ${x}`,
+    );
+  }
+});

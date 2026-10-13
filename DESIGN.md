@@ -8,3 +8,7 @@ Type: Chinese PingFang/Noto Sans fallbacks for reliable local Chinese rendering,
 Navigation: top brand/search/contribute; bottom floating view-mode bar; small right-side camera tools and minimap; left panel switches between exploration, building, contributions, data provenance and a contribution form. Mobile condenses panels to a bounded sheet so the scene remains visible. One transition: camera flight from model overview down to a walking route. Reduced motion removes camera interpolation. Focus rings, keyboard movement, explicit empty/error/loading states.
 
 Honest limitation: real OSM footprints, heights only when recorded; inferred heights labeled; generic facades and streetscape are illustrative. No implication of current street-level photogrammetry.
+
+
+## Funian Plaza refinement · 2026-10-13
+The user requests a more realistic Funian Plaza. Preserve the established UI; add raised irregular dark curtain-wall frames, reflective glass, storefronts, canopy, rooftop equipment, paved forecourt, porous foliage and street furniture. Keep OSM footprints and qualify the curated matching, approximate height and unsurveyed details. Default overview frames the two towers. Entrance and courtyard buttons enter walking mode with a wider field of view. Other buildings remain schematic. Do not describe procedural reconstruction as captured imagery.

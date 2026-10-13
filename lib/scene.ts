@@ -2,6 +2,15 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { Street, SceneOptions, SceneApi, Building } from "./types";
+import {
+  createFunianDetail,
+  createStreetscape,
+  surfaceTexture,
+  reflectionEnvironment,
+  skyTexture,
+  foliageTexture,
+} from "./funian.ts";
+import { FUNIAN_VIEWS } from "./landmarks.ts";
 export function inside(x: number, z: number, points: number[][]) {
   let yes = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
@@ -19,8 +28,8 @@ export function createScene(
   onStatus: (message: string) => void,
 ): SceneApi {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color("#e9eeeb");
-  scene.fog = new THREE.Fog("#e9eeeb", 800, 1700);
+  scene.background = new THREE.Color("#c6d5dc");
+  scene.fog = new THREE.Fog("#c6d5dc", 600, 1800);
   const camera = new THREE.PerspectiveCamera(43, 1, 0.2, 2500);
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -32,7 +41,12 @@ export function createScene(
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.25;
+  renderer.toneMappingExposure = 1.05;
+  const environment = reflectionEnvironment(renderer);
+  scene.environment = environment.texture;
+  const daySky = skyTexture(),
+    duskSky = skyTexture(true);
+  scene.background = daySky;
   host.appendChild(renderer.domElement);
   renderer.domElement.setAttribute(
     "aria-label",
@@ -46,10 +60,10 @@ export function createScene(
   controls.minDistance = 35;
   controls.maxDistance = 1100;
   controls.target.set(0, 12, 0);
-  const ambient = new THREE.HemisphereLight("#f4f8ff", "#aaa990", 2.4);
+  const ambient = new THREE.HemisphereLight("#f4f8ff", "#8a877a", 1.7);
   scene.add(ambient);
-  const sun = new THREE.DirectionalLight("#fff5db", 3);
-  sun.position.set(-220, 470, 180);
+  const sun = new THREE.DirectionalLight("#fff1d9", 2.7);
+  sun.position.set(-310, 490, 310);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.camera.left = -500;
@@ -57,9 +71,13 @@ export function createScene(
   sun.shadow.camera.top = 500;
   sun.shadow.camera.bottom = -500;
   sun.shadow.camera.far = 1200;
-  sun.shadow.normalBias = 1;
+  sun.shadow.normalBias = 0.16;
+  sun.shadow.bias = -0.0001;
   scene.add(sun);
   const meshes: THREE.Mesh[] = [];
+  const detailGroups = new Map<string, THREE.Group>();
+  const streetscape = createStreetscape();
+  scene.add(streetscape);
   const buildingGroup = new THREE.Group(),
     treeGroup = new THREE.Group(),
     labelGroup = new THREE.Group(),
@@ -97,12 +115,20 @@ export function createScene(
     return mesh;
   }
   street.greens.forEach((g) => polygon(g.points, "#c2d0b3", 0.1));
+  const asphalt = surfaceTexture("asphalt"),
+    paving = surfaceTexture("paving");
   const roadMaterial = new THREE.MeshStandardMaterial({
-    color: "#737e80",
+    color: "#92999b",
+    map: asphalt,
+    bumpMap: asphalt,
+    bumpScale: 0.06,
     roughness: 1,
   });
   const sidewalkMaterial = new THREE.MeshStandardMaterial({
-    color: "#e3dfd5",
+    color: "#eeeade",
+    map: paving,
+    bumpMap: paving,
+    bumpScale: 0.045,
     roughness: 1,
   });
   const stripeMaterial = new THREE.MeshBasicMaterial({ color: "#d4d5c5" });
@@ -122,6 +148,9 @@ export function createScene(
       material,
     );
     mesh.position.set((a[0] + b[0]) / 2, y, (a[1] + b[1]) / 2);
+    const uv = mesh.geometry.getAttribute("uv");
+    for (let i = 0; i < uv.count; i++)
+      uv.setXY(i, uv.getX(i) * width, uv.getY(i) * length);
     mesh.rotation.y = Math.atan2(dx, dz);
     mesh.receiveShadow = true;
     scene.add(mesh);
@@ -138,7 +167,13 @@ export function createScene(
     for (let i = 1; i < r.points.length; i++) {
       const a = r.points[i - 1],
         b = r.points[i];
-      segment(a, b, r.width, 0.22 + ri * 0.0005, roadMaterial);
+      segment(
+        a,
+        b,
+        r.width,
+        0.22 + ri * 0.0005,
+        r.width <= 2.5 ? sidewalkMaterial : roadMaterial,
+      );
       if (r.width > 5) {
         const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
         for (let t = 5; t < length - 4; t += 11) {
@@ -188,8 +223,8 @@ export function createScene(
     });
     geometry.rotateX(-Math.PI / 2);
     const wall = new THREE.MeshStandardMaterial({
-      color: i % 4 === 0 ? "#c9d1d0" : "#d3dcde",
-      map: facadeMap,
+      color: b.landmark ? "#586a73" : i % 4 === 0 ? "#aeb9bb" : "#c1c8c7",
+      map: b.landmark ? null : facadeMap,
       roughness: 0.68,
       metalness: 0.18,
     });
@@ -200,6 +235,11 @@ export function createScene(
     mesh.userData.buildingId = b.id;
     buildingGroup.add(mesh);
     meshes.push(mesh);
+    if (b.landmark) {
+      const detail = createFunianDetail(b);
+      buildingGroup.add(detail);
+      detailGroups.set(b.id, detail);
+    }
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geometry, 30),
       new THREE.LineBasicMaterial({
@@ -209,8 +249,12 @@ export function createScene(
       }),
     );
     edges.position.y = 0.3;
-    buildingGroup.add(edges);
-    if (b.name && !b.name.startsWith("未命名")) {
+    if (!b.landmark) buildingGroup.add(edges);
+    else {
+      edges.geometry.dispose();
+      edges.material.dispose();
+    }
+    if (b.name && !b.name.startsWith("未命名") && b.height > 20) {
       const canvas = document.createElement("canvas");
       canvas.width = 512;
       canvas.height = 92;
@@ -220,11 +264,15 @@ export function createScene(
       c.roundRect(0, 0, 512, 92, 18);
       c.fill();
       c.fillStyle = "#314a45";
-      c.font = "500 36px sans-serif";
+      c.font = "500 32px sans-serif";
       c.textAlign = "center";
       c.textBaseline = "middle";
       c.fillText(
-        b.name.length > 12 ? b.name.slice(0, 12) + "…" : b.name,
+        b.landmark
+          ? b.name.replace("花样年福年广场 · ", "福年广场 · ")
+          : b.name.length > 12
+            ? b.name.slice(0, 12) + "…"
+            : b.name,
         256,
         46,
       );
@@ -243,7 +291,15 @@ export function createScene(
       labelGroup.add(sprite);
     }
   });
-  const treePositions: number[][] = [];
+  const treePositions: number[][] = [
+    [-187, -88],
+    [-122, -105],
+    [-188, -102],
+    [-98, -65],
+    [-96, -48],
+    [-188, -23],
+    [-111, -24],
+  ];
   street.roads
     .filter((r) => r.name === "天府三街")
     .forEach((r) => {
@@ -274,28 +330,74 @@ export function createScene(
         }
       }
     });
+  const crownCount = 48;
+  const foliage = foliageTexture();
   const leaves = new THREE.InstancedMesh(
-    new THREE.IcosahedronGeometry(3.5, 1),
-    new THREE.MeshStandardMaterial({ color: "#719579", roughness: 1 }),
-    treePositions.length,
+    new THREE.PlaneGeometry(2.4, 2.4),
+    new THREE.MeshStandardMaterial({
+      map: foliage,
+      alphaTest: 0.4,
+      side: THREE.DoubleSide,
+      roughness: 1,
+      color: "#b1bc9c",
+    }),
+    treePositions.length * crownCount,
   );
   const trunks = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.25, 0.4, 4.5, 6),
-    new THREE.MeshStandardMaterial({ color: "#857d68" }),
+    new THREE.CylinderGeometry(0.14, 0.28, 5, 7),
+    new THREE.MeshStandardMaterial({ color: "#6c6453", roughness: 1 }),
     treePositions.length,
   );
   const dummy = new THREE.Object3D();
   treePositions.forEach(([x, z], i) => {
-    dummy.position.set(x, 6.8, z);
-    dummy.scale.set(1, 1.25, 1);
-    dummy.updateMatrix();
-    leaves.setMatrixAt(i, dummy.matrix);
-    dummy.position.y = 2.3;
+    for (let n = 0; n < crownCount; n++) {
+      const a = n * 2.39996 + i,
+        vertical = 1 - (2 * (n + 0.5)) / crownCount,
+        radius = Math.sqrt(1 - vertical * vertical) * 2.6;
+      dummy.position.set(
+        x + Math.cos(a) * radius,
+        6.1 + vertical * 2.2,
+        z + Math.sin(a) * radius,
+      );
+      dummy.scale.setScalar(0.9 + (n % 4) * 0.13);
+      dummy.rotation.set(n * 0.37, n * 0.7, n * 0.21);
+      dummy.updateMatrix();
+      leaves.setMatrixAt(i * crownCount + n, dummy.matrix);
+      leaves.setColorAt(
+        i * crownCount + n,
+        new THREE.Color().setHSL(
+          0.17 + (n % 3) * 0.015,
+          0.12,
+          0.63 + (i % 4) * 0.07,
+        ),
+      );
+    }
+    dummy.position.set(x, 2.5, z);
+    dummy.rotation.set(0, 0, 0);
     dummy.scale.set(1, 1, 1);
     dummy.updateMatrix();
     trunks.setMatrixAt(i, dummy.matrix);
   });
+  const branches = new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.055, 0.12, 3, 6),
+    new THREE.MeshStandardMaterial({ color: "#706857", roughness: 1 }),
+    treePositions.length * 4,
+  );
+  treePositions.forEach(([x, z], i) => {
+    for (let n = 0; n < 4; n++) {
+      const a = (n * Math.PI) / 2 + i;
+      dummy.position.set(x + Math.cos(a) * 0.6, 4.3, z + Math.sin(a) * 0.6);
+      dummy.scale.set(1, 1, 1);
+      dummy.rotation.set(Math.sin(a) * 0.5, 0, Math.cos(a) * 0.5);
+      dummy.updateMatrix();
+      branches.setMatrixAt(i * 4 + n, dummy.matrix);
+    }
+  });
+  branches.castShadow = true;
+  treeGroup.add(branches);
   leaves.castShadow = true;
+  leaves.receiveShadow = true;
+  trunks.castShadow = true;
   treeGroup.add(leaves, trunks);
   const routeMaterial = new THREE.LineDashedMaterial({
     color: "#2e9277",
@@ -351,8 +453,8 @@ export function createScene(
   } | null = null;
   let previewId: string | null = null;
   let modelSequence = 0;
-  const homePosition = new THREE.Vector3(410, 370, 460),
-    homeTarget = new THREE.Vector3(0, 8, 0);
+  const homePosition = new THREE.Vector3(-360, 205, 125),
+    homeTarget = new THREE.Vector3(-143, 57, -90);
   camera.position.copy(homePosition);
   controls.target.copy(homeTarget);
   controls.update();
@@ -389,6 +491,7 @@ export function createScene(
       });
     });
     meshes.forEach((m) => (m.visible = true));
+    detailGroups.forEach((g) => (g.visible = true));
   }
   async function showPreview() {
     const p = options.preview;
@@ -418,6 +521,10 @@ export function createScene(
       previewGroup.add(m);
       meshes.find((m) => m.userData.buildingId === b.id)!.visible =
         !options.community;
+    }
+    if (p.kind === "height" && options.community) {
+      const detail = detailGroups.get(b.id);
+      if (detail) detail.visible = false;
     }
     if (p.kind === "model" && p.assetUrl) {
       const seq = modelSequence;
@@ -449,6 +556,8 @@ export function createScene(
           }
         });
         previewGroup.add(model.scene);
+        const detail = detailGroups.get(b.id);
+        if (detail) detail.visible = !options.community;
         meshes.find((m) => m.userData.buildingId === b.id)!.visible =
           !options.community;
       } catch (e) {
@@ -474,15 +583,17 @@ export function createScene(
     labelGroup.visible = next.labels && next.mode === "overview";
     buildingGroup.visible = next.buildings;
     previewGroup.visible = next.community;
-    scene.background = new THREE.Color(next.night ? "#162932" : "#e9eeeb");
-    scene.fog = new THREE.Fog(next.night ? "#162932" : "#e9eeeb", 800, 1700);
-    ambient.intensity = next.night ? 1.1 : 2.4;
-    sun.intensity = next.night ? 0.25 : 3;
-    renderer.toneMappingExposure = next.night ? 0.8 : 1.25;
+    scene.background = next.night ? duskSky : daySky;
+    scene.fog = new THREE.Fog(next.night ? "#233540" : "#c6d5dc", 600, 1800);
+    ambient.intensity = next.night ? 0.65 : 1.7;
+    sun.intensity = next.night ? 0.3 : 2.7;
+    renderer.toneMappingExposure = next.night ? 0.68 : 1.05;
     route.visible = next.mode === "walk";
     marker.visible = next.mode === "overview";
     if (old.mode !== next.mode) {
       keys.clear();
+      camera.fov = next.mode === "walk" ? 65 : 43;
+      camera.updateProjectionMatrix();
       fly = null;
       controls.enabled = next.mode === "overview";
       if (next.mode === "walk") {
@@ -505,6 +616,13 @@ export function createScene(
           next.preview?.buildingId === m.userData.buildingId
         )),
     );
+    detailGroups.forEach((g, id) => {
+      g.visible = !(
+        next.community &&
+        previewGroup.children.length > 0 &&
+        next.preview?.buildingId === id
+      );
+    });
     select();
     void showPreview();
   }
@@ -538,9 +656,12 @@ export function createScene(
         (-(e.clientY - rect.top) / rect.height) * 2 + 1,
       );
       raycaster.setFromCamera(pointer, camera);
-      const hit = raycaster.intersectObjects(
-        meshes.filter((m) => m.visible && buildingGroup.visible),
-      )[0];
+      const hit = raycaster.intersectObjects([
+        ...meshes.filter((m) => m.visible && buildingGroup.visible),
+        ...Array.from(detailGroups.values()).filter(
+          (g) => g.visible && buildingGroup.visible,
+        ),
+      ])[0];
       if (hit) onSelect(hit.object.userData.buildingId);
     }
     drag = null;
@@ -634,6 +755,19 @@ export function createScene(
   animation = requestAnimationFrame(animate);
   return {
     setOptions,
+    visit: (view) => {
+      if (options.mode !== "walk") return;
+      fly = null;
+      const v = FUNIAN_VIEWS[view];
+      camera.position.set(v.position[0], v.position[1], v.position[2]);
+      const dx = v.target[0] - v.position[0],
+        dy = v.target[1] - v.position[1],
+        dz = v.target[2] - v.position[2];
+      yaw = Math.atan2(-dx, -dz);
+      pitch = Math.atan2(dy, Math.hypot(dx, dz));
+      camera.rotation.set(pitch, yaw, 0, "YXZ");
+      renderer.domElement.focus();
+    },
     focus: (id) => {
       const b = street.buildings.find((b) => b.id === id);
       if (!b) return;
@@ -695,6 +829,19 @@ export function createScene(
             m.dispose();
         }
       });
+      const textures = new Set<THREE.Texture>();
+      scene.traverse((o) => {
+        if (o instanceof THREE.Mesh || o instanceof THREE.Sprite)
+          for (const m of Array.isArray(o.material) ? o.material : [o.material])
+            for (const v of Object.values(m))
+              if (v instanceof THREE.Texture) textures.add(v);
+      });
+      textures.forEach((t) => t.dispose());
+      asphalt.dispose();
+      paving.dispose();
+      environment.dispose();
+      daySky.dispose();
+      duskSky.dispose();
       facadeMap.dispose();
       renderer.dispose();
       renderer.domElement.remove();

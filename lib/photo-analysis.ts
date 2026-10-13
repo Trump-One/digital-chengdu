@@ -48,8 +48,13 @@ export async function analyzeBuildingPhoto(
     }),
   });
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403)
+    if (res.status === 401)
       throw new AnalysisError("视觉服务密钥不可用，请联系网站维护者", 503);
+    if (res.status === 403)
+      throw new AnalysisError(
+        "OpenRouter 或模型服务商拒绝了请求（403），请网站维护者检查账号与模型访问限制",
+        503,
+      );
     if (res.status === 402)
       throw new AnalysisError("OpenRouter 余额不足，请网站维护者补充额度", 503);
     if (res.status === 429)

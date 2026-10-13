@@ -113,6 +113,23 @@ test("OpenRouter embedded errors never become a usable model", async () => {
     (e) => e.status === 502 && !e.message.includes("private"),
   );
 });
+test("a provider access denial is not reported as an invalid key", async () => {
+  await assert.rejects(
+    () =>
+      analyzeBuildingPhoto(
+        "test-secret",
+        "model",
+        "image",
+        "",
+        async () => new Response("private provider details", { status: 403 }),
+      ),
+    (e) =>
+      e.status === 503 &&
+      e.message.includes("403") &&
+      !e.message.includes("密钥") &&
+      !e.message.includes("private"),
+  );
+});
 const street = JSON.parse(
   readFileSync(new URL("../public/geodata/street.json", import.meta.url)),
 );

@@ -56,6 +56,7 @@ export type SceneOptions = {
 export type SceneApi = {
   setOptions: (options: SceneOptions) => void;
   visit: (view: "entrance" | "courtyard") => void;
+  inspectTerrace: () => void;
   focus: (id: string) => void;
   reset: () => void;
   zoom: (direction: number) => void;

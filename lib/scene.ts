@@ -11,7 +11,7 @@ import {
   skyTexture,
   foliageTexture,
 } from "./funian.ts";
-import { FUNIAN_VIEWS } from "./landmarks.ts";
+import { FUNIAN_TERRACE, FUNIAN_VIEWS } from "./landmarks.ts";
 export function inside(x: number, z: number, points: number[][]) {
   let yes = false;
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
@@ -797,6 +797,11 @@ export function createScene(
       pitch = Math.atan2(dy, Math.hypot(dx, dz));
       camera.rotation.set(pitch, yaw, 0, "YXZ");
       renderer.domElement.focus();
+    },
+    inspectTerrace: () => {
+      if (options.mode !== "overview") return;
+      const v = FUNIAN_TERRACE.view;
+      travel(new THREE.Vector3(...v.position), new THREE.Vector3(...v.target));
     },
     focus: (id) => {
       const b = street.buildings.find((b) => b.id === id);

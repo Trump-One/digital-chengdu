@@ -6,7 +6,8 @@ import {
   detailedFurniture,
   batchStaticDetail,
 } from "./urban-detail.ts";
-import { FUNIAN_IDS } from "./landmarks.ts";
+import { createFunianTerrace } from "./terrace.ts";
+import { FUNIAN_TERRACE, FUNIAN_IDS } from "./landmarks.ts";
 
 function random(seed: number) {
   return () => {
@@ -152,7 +153,13 @@ export function createFunianDetail(b: Building) {
     const c = facade.getContext("2d")!,
       rand = random(side * 93 + Math.round(b.height));
     const cols = Math.max(3, Math.round(length / 1.65)),
-      rows = Math.max(2, Math.round(height / (tower ? 2.7 : 3.2)));
+      rows = Math.max(
+        2,
+        Math.round(
+          height /
+            (tower ? 2.7 : b.id === FUNIAN_TERRACE.buildingId ? 5.4 : 3.2),
+        ),
+      );
     const cw = facade.width / cols,
       ch = facade.height / rows;
     c.fillStyle = "#718690";
@@ -243,7 +250,8 @@ export function createFunianDetail(b: Building) {
       for (let u = 0; u <= 1; u += 4 / length)
         frame(u, b.height / 2, 0.24, b.height);
     } else {
-      for (let y = 3; y < b.height; y += 3.4) frame(0.5, y, length, 0.3);
+      const floor = b.id === FUNIAN_TERRACE.buildingId ? 5.4 : 3.4;
+      for (let y = floor; y < b.height; y += floor) frame(0.5, y, length, 0.3);
     }
     // Ground-floor double-height glazed storefronts and heavy columns.
     frame(0.5, 3.7, length, 0.45);
@@ -315,6 +323,7 @@ export function createFunianDetail(b: Building) {
   beams.castShadow = true;
   beams.receiveShadow = true;
   root.add(beams);
+  if (b.id === FUNIAN_TERRACE.buildingId) root.add(createFunianTerrace());
   batchStaticDetail(root);
   root.traverse((o) => {
     o.userData.buildingId = b.id;

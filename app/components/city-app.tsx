@@ -139,9 +139,9 @@ export default function CityApp() {
     "explore" | "layers" | "community" | "about" | "building" | "contribute"
   >("explore");
   const [panelOpen, setPanelOpen] = useState(true);
-  const [viewpoint, setViewpoint] = useState<"entrance" | "courtyard" | null>(
-    null,
-  );
+  const [viewpoint, setViewpoint] = useState<
+    "entrance" | "courtyard" | "terrace" | null
+  >(null);
   const [selected, setSelected] = useState<Building | null>(null);
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
@@ -190,9 +190,19 @@ export default function CityApp() {
     api.current?.setOptions(options);
   }, [options, ready]);
   useEffect(() => {
-    if (options.mode === "walk" && viewpoint) api.current?.visit(viewpoint);
+    if (viewpoint === "terrace" && options.mode === "overview")
+      api.current?.inspectTerrace();
+    else if (options.mode === "walk" && viewpoint && viewpoint !== "terrace")
+      api.current?.visit(viewpoint);
   }, [viewpoint, options.mode, ready]);
-  function visit(view: "entrance" | "courtyard") {
+  function visit(view: "entrance" | "courtyard" | "terrace") {
+    if (view === "terrace") {
+      setOptions((o) => ({ ...o, mode: "overview" }));
+      setViewpoint(view);
+      if (options.mode === "overview") api.current?.inspectTerrace();
+      setPanelOpen(false);
+      return;
+    }
     setOptions((o) => ({ ...o, mode: "walk" }));
     setViewpoint(view);
     if (options.mode === "walk") api.current?.visit(view);
@@ -470,6 +480,13 @@ export default function CityApp() {
                 <View size={18} />
                 进入双塔内院
               </button>
+              <button
+                className="secondary full"
+                onClick={() => visit("terrace")}
+              >
+                <View size={18} />
+                查看 T1 四楼露台
+              </button>
               <p className="subtle">参照外观重建 · 尺寸与街景细节待实测</p>
             </div>
             <div className="street-stat">
@@ -584,7 +601,7 @@ export default function CityApp() {
             </dl>
             <p className="notice">
               {selected.landmark
-                ? "轮廓来自开放街图；楼群对应、幕墙分格与入口参照公开照片重建，尚未逐栋实测校准。双塔按公开资料约 160 米显示，原始地图楼层数保留在下载数据中。商铺、车辆和景观为示意。"
+                ? "轮廓来自开放街图；楼群对应、幕墙分格与入口参照公开照片重建，尚未逐栋实测校准。双塔按公开资料约 160 米显示，原始地图楼层数保留在下载数据中。T1 东侧四楼露台按用户标注补充，尺寸与样式待实测。商铺、车辆和景观为示意。"
                 : "轮廓来自开放街图；外墙、树木与道路铺装为示意。楼层估算使用每层 3.2 米，不代表实测高度。"}
             </p>
             {selected.landmark && (
@@ -863,8 +880,8 @@ export default function CityApp() {
             <h3>福年广场外观重建</h3>
             <p className="description">
               根据公开外观照片与位置资料匹配楼群，补充双塔格框幕墙、裙楼、入口雨棚和内院。双塔暂按资料中的约
-              160
-              米显示，非实测成果。楼栋编号暂未确认，因此使用临街、北侧等方位名称。
+              160 米显示，非实测成果。T1
+              及东侧四楼露台按用户标注定位，露台范围、标高和栏杆样式暂为近似重建；其余楼栋仍使用方位名称。
             </p>
             <a
               className="source-link"

@@ -70,7 +70,8 @@ https://www.openstreetmap.org/copyright
 ## 福年广场重建说明
 
 - `lib/landmarks.ts` 是原始 OSM 之外的人工补充层，保留原轮廓、标签和链接。
-- `lib/funian.ts` 生成幕墙、入口与街景几何；玻璃环境、铺装和枝叶纹理由代码生成，没有打包网上照片。
+- `lib/funian.ts` 生成幕墙与街景；`lib/urban-detail.ts` 补充立体门窗、店面进深、长椅、花池与排水格栅，并合并静态几何以减少绘制次数。
+- 铺装使用 [Poly Haven concrete_pavers_02](https://polyhaven.com/a/concrete_pavers_02) 的颜色、法线和粗糙度贴图，天空光照使用 [overcast_soil_puresky](https://polyhaven.com/a/overcast_soil_puresky)，均为 CC0，来源与校验值见 `public/materials/sources.json`。它们是通用材质，不是成都现场照片或实时天气；未打包外观参考网站的照片。
 - [公开位置与外观参考](https://www.funianob.cn/)提供吉泰路 666 号地址、外观照片以及约 160 米双塔资料。其为第三方资料，不能代替实测。
 - 新增入口、内院两个一键步行视角；出生点与内院通路有碰撞检查。
 - 楼群对应按位置资料人工匹配，T1/T2 编号未确认，故使用方位名称。幕墙分格、店面、绿化、车辆、路灯及铺装仍为参考照片的程序化重建，不是摄影测量。

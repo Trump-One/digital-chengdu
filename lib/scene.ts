@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { Street, SceneOptions, SceneApi, Building } from "./types";
 import {
@@ -65,14 +66,19 @@ export function createScene(
   const sun = new THREE.DirectionalLight("#fff1d9", 2.7);
   sun.position.set(-310, 490, 310);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.camera.left = -500;
-  sun.shadow.camera.right = 500;
-  sun.shadow.camera.top = 500;
-  sun.shadow.camera.bottom = -500;
+  const shadowSize = window.matchMedia("(max-width: 600px)").matches
+    ? 2048
+    : 4096;
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
+  sun.target.position.set(-145, 0, -90);
+  scene.add(sun.target);
+  sun.shadow.camera.left = -180;
+  sun.shadow.camera.right = 180;
+  sun.shadow.camera.top = 180;
+  sun.shadow.camera.bottom = -180;
   sun.shadow.camera.far = 1200;
-  sun.shadow.normalBias = 0.16;
-  sun.shadow.bias = -0.0001;
+  sun.shadow.normalBias = 0.035;
+  sun.shadow.bias = -0.000025;
   scene.add(sun);
   const meshes: THREE.Mesh[] = [];
   const detailGroups = new Map<string, THREE.Group>();
@@ -344,7 +350,7 @@ export function createScene(
     treePositions.length * crownCount,
   );
   const trunks = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.14, 0.28, 5, 7),
+    new THREE.CylinderGeometry(0.12, 0.26, 5, 12),
     new THREE.MeshStandardMaterial({ color: "#6c6453", roughness: 1 }),
     treePositions.length,
   );
@@ -353,10 +359,12 @@ export function createScene(
     for (let n = 0; n < crownCount; n++) {
       const a = n * 2.39996 + i,
         vertical = 1 - (2 * (n + 0.5)) / crownCount,
-        radius = Math.sqrt(1 - vertical * vertical) * 2.6;
+        radius =
+          Math.sqrt(1 - vertical * vertical) *
+          (2.3 + Math.sin(n * 3 + i) * 0.4);
       dummy.position.set(
         x + Math.cos(a) * radius,
-        6.1 + vertical * 2.2,
+        6.1 + vertical * (2.1 + (i % 3) * 0.18) + Math.sin(n * 7 + i) * 0.27,
         z + Math.sin(a) * radius,
       );
       dummy.scale.setScalar(0.9 + (n % 4) * 0.13);
@@ -451,6 +459,27 @@ export function createScene(
     targetTo: THREE.Vector3;
     start: number;
   } | null = null;
+  let scannedSky: THREE.DataTexture | null = null;
+  let scannedEnvironment: THREE.WebGLRenderTarget | null = null;
+  new HDRLoader().load(
+    "/materials/overcast-sky.hdr",
+    (texture) => {
+      if (disposed) {
+        texture.dispose();
+        return;
+      }
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      scannedEnvironment = pmrem.fromEquirectangular(texture);
+      pmrem.dispose();
+      scannedSky = texture;
+      scene.environment = scannedEnvironment.texture;
+      scene.environmentIntensity = options.night ? 0.32 : 1.05;
+      if (!options.night) scene.background = scannedSky;
+    },
+    undefined,
+    () => onStatus("天空光照素材暂未载入，已使用备用光照"),
+  );
   let previewId: string | null = null;
   let modelSequence = 0;
   const homePosition = new THREE.Vector3(-360, 205, 125),
@@ -583,11 +612,12 @@ export function createScene(
     labelGroup.visible = next.labels && next.mode === "overview";
     buildingGroup.visible = next.buildings;
     previewGroup.visible = next.community;
-    scene.background = next.night ? duskSky : daySky;
+    scene.background = next.night ? duskSky : scannedSky || daySky;
+    scene.environmentIntensity = next.night ? 0.32 : 1.05;
     scene.fog = new THREE.Fog(next.night ? "#233540" : "#c6d5dc", 600, 1800);
-    ambient.intensity = next.night ? 0.65 : 1.7;
-    sun.intensity = next.night ? 0.3 : 2.7;
-    renderer.toneMappingExposure = next.night ? 0.68 : 1.05;
+    ambient.intensity = next.night ? 0.45 : 0.72;
+    sun.intensity = next.night ? 0.3 : 2.1;
+    renderer.toneMappingExposure = next.night ? 0.8 : 1.05;
     route.visible = next.mode === "walk";
     marker.visible = next.mode === "overview";
     if (old.mode !== next.mode) {
@@ -840,6 +870,8 @@ export function createScene(
       asphalt.dispose();
       paving.dispose();
       environment.dispose();
+      scannedEnvironment?.dispose();
+      scannedSky?.dispose();
       daySky.dispose();
       duskSky.dispose();
       facadeMap.dispose();

@@ -1,6 +1,11 @@
 import * as THREE from "three";
 import type { Building } from "./types";
 
+import {
+  storefrontBay,
+  detailedFurniture,
+  batchStaticDetail,
+} from "./urban-detail.ts";
 import { FUNIAN_IDS } from "./landmarks.ts";
 
 function random(seed: number) {
@@ -106,48 +111,12 @@ export function createFunianDetail(b: Building) {
     roughness: 0.9,
   });
   const glassMat = new THREE.MeshPhysicalMaterial({
-    color: "#9caeb6",
-    metalness: 0.83,
-    roughness: 0.19,
+    color: "#bac4c5",
+    metalness: 0.64,
+    roughness: 0.14,
     clearcoat: 1,
     clearcoatRoughness: 0.14,
     envMapIntensity: 1.3,
-  });
-  const shop = document.createElement("canvas");
-  shop.width = shop.height = 256;
-  const sc = shop.getContext("2d")!,
-    sg = sc.createLinearGradient(0, 0, 256, 256);
-  sg.addColorStop(0, "#677975");
-  sg.addColorStop(0.45, "#35474b");
-  sg.addColorStop(1, "#8e8d78");
-  sc.fillStyle = sg;
-  sc.fillRect(0, 0, 256, 256);
-  sc.fillStyle = "#adb09b";
-  sc.fillRect(20, 35, 213, 7);
-  sc.fillStyle = "#283c40";
-  sc.fillRect(24, 110, 76, 108);
-  sc.fillRect(143, 82, 60, 136);
-  sc.fillStyle = "rgba(188,177,139,.7)";
-  sc.fillRect(28, 59, 70, 48);
-  sc.fillRect(147, 39, 53, 38);
-  sc.fillStyle = "#202e31";
-  sc.fillRect(0, 0, 256, 13);
-  sc.fillRect(122, 0, 8, 256);
-  sc.fillRect(0, 225, 256, 9);
-  sc.fillStyle = "#b5b5a6";
-  sc.fillRect(113, 149, 3, 38);
-  sc.fillRect(136, 149, 3, 38);
-  const shopMap = new THREE.CanvasTexture(shop);
-  shopMap.colorSpace = THREE.SRGBColorSpace;
-  const shopMat = new THREE.MeshStandardMaterial({
-    map: shopMap,
-    color: "#a4b9b6",
-    metalness: 0.35,
-    roughness: 0.32,
-    emissive: "#c1a56e",
-    emissiveMap: shopMap,
-    emissiveIntensity: 0.18,
-    side: THREE.DoubleSide,
   });
   const frameParts: { p: number[]; s: number[]; ry: number }[] = [];
   function box(p: number[], s: number[], mat: THREE.Material, ry = 0) {
@@ -178,7 +147,7 @@ export function createFunianDetail(b: Building) {
       start = 3.6,
       height = b.height - start;
     const facade = document.createElement("canvas");
-    facade.width = 512;
+    facade.width = 2048;
     facade.height = tower ? 2048 : 1024;
     const c = facade.getContext("2d")!,
       rand = random(side * 93 + Math.round(b.height));
@@ -190,11 +159,11 @@ export function createFunianDetail(b: Building) {
     c.fillRect(0, 0, facade.width, facade.height);
     for (let row = 0; row < rows; row++)
       for (let col = 0; col < cols; col++) {
-        const shade = 120 + rand() * 40 + ((rows - row) / rows) * 40;
-        c.fillStyle = `rgb(${shade * 0.83},${shade * 0.95},${shade})`;
+        const shade = 168 + rand() * 8 + ((rows - row) / rows) * 16;
+        c.fillStyle = `rgb(${shade * 0.91},${shade * 0.97},${shade})`;
         c.fillRect(col * cw + 1, row * ch + 1, cw - 2, ch - 2);
-        if (rand() > 0.86) {
-          c.fillStyle = "rgba(21,32,38,.7)";
+        if (rand() > 0.975) {
+          c.fillStyle = "rgba(31,43,48,.45)";
           c.fillRect(
             col * cw + cw * 0.3,
             row * ch + ch * 0.54,
@@ -203,7 +172,7 @@ export function createFunianDetail(b: Building) {
           );
         }
         if (rand() > 0.78) {
-          c.fillStyle = "rgba(226,219,196,.26)";
+          c.fillStyle = "rgba(226,219,196,.10)";
           c.fillRect(col * cw + 2, row * ch + 2, cw - 4, ch * 0.3);
         }
       }
@@ -229,6 +198,27 @@ export function createFunianDetail(b: Building) {
     root.add(wall);
     function frame(u: number, y: number, w: number, h: number) {
       beam([a[0] + dx * u, y, a[1] + dz * u], [w, h, 0.38], angle);
+    }
+    // Fine extruded mullions remove the flat checkerboard look in a close view.
+    for (let col = 0; col <= cols; col++)
+      frame(col / cols, start + height / 2, 0.035, height);
+    for (let row = 0; row <= rows; row++)
+      frame(0.5, start + (row * height) / rows, length, 0.03);
+    // Individual vent windows, tilted outward; no random black panel patches.
+    for (let row = 2; row < Math.min(rows, 12); row += 3) {
+      const col = (side * 7 + row * 3) % cols;
+      const u = (col + 0.5) / cols;
+      const vent = new THREE.Mesh(
+        new THREE.PlaneGeometry((length / cols) * 0.72, (height / rows) * 0.45),
+        glassMat,
+      );
+      vent.position.set(
+        a[0] + dx * u + nx * outward * 0.19,
+        start + (row * height) / rows,
+        a[1] + dz * u + nz * outward * 0.19,
+      );
+      vent.rotation.set(-0.15 * outward, angle, 0);
+      root.add(vent);
     }
     // Raised black rectangular borders, varied by bay and height.
     if (tower) {
@@ -257,23 +247,17 @@ export function createFunianDetail(b: Building) {
     }
     // Ground-floor double-height glazed storefronts and heavy columns.
     frame(0.5, 3.7, length, 0.45);
-    for (let u = 0; u < 1; u += 5 / length) {
-      frame(u, 1.9, 0.34, 3.8);
-      const door = new THREE.Mesh(
-        new THREE.PlaneGeometry(Math.min(4.6, length), 3.2),
-        shopMat,
-      );
-      door.position.set(
-        a[0] + dx * Math.min(u + 2.5 / length, 1),
-        1.95,
-        a[1] + dz * Math.min(u + 2.5 / length, 1),
-      );
-      door.position.x += nx * outward * 0.12;
-      door.position.z += nz * outward * 0.12;
-      door.rotation.y = angle;
-      root.add(door);
+    const bays = Math.max(1, Math.floor(length / 5));
+    for (let j = 0; j < bays; j++) {
+      const u = (j + 0.5) / bays;
+      const bay = storefrontBay(length / bays - 0.08, j + side);
+      bay.position.set(a[0] + dx * u, 0, a[1] + dz * u);
+      // Plane local +z must face the exterior on both clockwise/counterclockwise edges.
+      bay.rotation.y = outward > 0 ? angle + Math.PI : angle;
+      root.add(bay);
     }
   }
+
   if (tower || apartment) {
     // Recessed mechanical penthouse and perimeter parapets.
     box([cx, b.height + 0.65, cz], [width * 0.9, 1.3, depth * 0.9], stoneMat);
@@ -283,6 +267,10 @@ export function createFunianDetail(b: Building) {
   }
   if (b.id === FUNIAN_IDS[0]) {
     box([cx, 4.4, maxZ + 2.4], [width * 0.82, 0.5, 5.2], frameMat);
+    for (let x = cx - width * 0.4; x < cx + width * 0.4; x += 2)
+      box([x, 4.15, maxZ + 2.4], [0.08, 0.32, 5.1], frameMat);
+    for (let z = maxZ + 0.4; z < maxZ + 5; z += 1.1)
+      box([cx, 4.67, z], [width * 0.82, 0.018, 0.035], frameMat);
     // Sign is descriptive wayfinding, not a copied texture from a photograph.
     const canvas = document.createElement("canvas");
     canvas.width = 1024;
@@ -327,6 +315,7 @@ export function createFunianDetail(b: Building) {
   beams.castShadow = true;
   beams.receiveShadow = true;
   root.add(beams);
+  batchStaticDetail(root);
   root.traverse((o) => {
     o.userData.buildingId = b.id;
   });
@@ -366,8 +355,18 @@ export function createStreetscape() {
   }
   // A clear walking corridor remains between both towers; all furniture is
   // illustrative. The hardscape occupies the mapped complex, not other roads.
-  const paving = surfaceTexture("paving");
-  paving.repeat.set(15, 19);
+  const textureLoader = new THREE.TextureLoader();
+  const load = (path: string, color = false) => {
+    const t = textureLoader.load(path);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(58.5, 66.5);
+    t.anisotropy = 8;
+    if (color) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  const pavingColor = load("/materials/paving-color.jpg", true),
+    pavingNormal = load("/materials/paving-normal.jpg"),
+    pavingRoughness = load("/materials/paving-roughness.jpg");
   box(
     -143,
     0.12,
@@ -376,8 +375,11 @@ export function createStreetscape() {
     0.18,
     133,
     new THREE.MeshStandardMaterial({
-      map: paving,
-      color: "#d0cfc6",
+      map: pavingColor,
+      normalMap: pavingNormal,
+      normalScale: new THREE.Vector2(0.45, 0.45),
+      roughnessMap: pavingRoughness,
+      color: "#dddcd2",
       roughness: 0.95,
     }),
   );
@@ -385,32 +387,11 @@ export function createStreetscape() {
     color: "#777c78",
     roughness: 1,
   });
-  for (let x = -196; x < -85; x += 12) box(x, 0.23, -92, 0.16, 0.03, 128, seam);
+  for (let x = -196; x < -85; x += 12)
+    box(x, 0.224, -92, 0.035, 0.006, 128, seam);
   for (let z = -154; z < -24; z += 12)
-    box(-143, 0.235, z, 114, 0.03, 0.16, seam);
-  for (const [x, z] of [
-    [-187, -88],
-    [-122, -105],
-    [-188, -102],
-    [-98, -65],
-    [-96, -48],
-    [-188, -23],
-    [-111, -24],
-  ]) {
-    box(x, 0.5, z, 4, 1, 4, stone);
-    box(
-      x,
-      1.05,
-      z,
-      3.5,
-      0.15,
-      3.5,
-      new THREE.MeshStandardMaterial({ color: "#405847", roughness: 1 }),
-    );
-    box(x + 3, 0.55, z, 2.7, 0.16, 0.8, timber);
-    box(x + 2, 0.28, z, 0.2, 0.55, 0.65, metal);
-    box(x + 4, 0.28, z, 0.2, 0.55, 0.65, metal);
-  }
+    box(-143, 0.226, z, 114, 0.006, 0.035, seam);
+  group.add(detailedFurniture());
   // Bollards protect the frontage. No fixtures lie in the entrance viewpoint.
   for (let x = -176; x < -94; x += 4) {
     const m = new THREE.Mesh(

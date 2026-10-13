@@ -1,0 +1,30 @@
+{
+  "license": "CC0-1.0",
+  "assets": [
+    {
+      "file": "paving-color.jpg",
+      "origin": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers_02/concrete_pavers_02_diff_1k.jpg",
+      "md5": "a0669d6bb1ef8db865b7c05795761c5b"
+    },
+    {
+      "file": "paving-normal.jpg",
+      "origin": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers_02/concrete_pavers_02_nor_gl_1k.jpg",
+      "md5": "4af20fb7e056987a7441d365d9d3fc80"
+    },
+    {
+      "file": "paving-roughness.jpg",
+      "origin": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/concrete_pavers_02/concrete_pavers_02_rough_1k.jpg",
+      "md5": "8534baafe6b4c0697a21ef2020be347a"
+    },
+    {
+      "file": "overcast-sky.hdr",
+      "origin": "https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/overcast_soil_puresky_1k.hdr",
+      "md5": "7fbca6264f4618a787092b9e1679a578"
+    }
+  ],
+  "references": [
+    "https://polyhaven.com/a/concrete_pavers_02",
+    "https://polyhaven.com/a/overcast_soil_puresky"
+  ],
+  "note": "Generic material and sky references, not imagery captured at Funian Plaza."
+}

@@ -875,6 +875,19 @@ export default function CityApp() {
               楼群位置与外观参考
               <ExternalLink size={13} />
             </a>
+            <h3>材质与光照</h3>
+            <p className="description">
+              铺装细节和阴天天空采用 Poly Haven 的 CC0 通用素材，
+              用于改善近景质感，并非福年广场现场采集或实时天气。
+            </p>
+            <a
+              className="source-link"
+              href="/materials/sources.json"
+              target="_blank"
+              rel="noreferrer"
+            >
+              查看材质来源 <ExternalLink size={13} />
+            </a>
             <h3>仍需要大家完善</h3>
             <p className="description">
               幕墙分格细节、商铺、树木位置、车辆和铺装为重建示意，不是现场扫描；地面暂按平面展示。没有楼层或高度记录的普通建筑使用

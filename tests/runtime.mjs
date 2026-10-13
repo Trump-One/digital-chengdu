@@ -59,6 +59,33 @@ assert.equal(
   ).status,
   400,
 );
+const aiAnon = await fetch(origin + "/api/photo-analysis", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: "{}",
+});
+assert.equal(aiAnon.status, 401);
+const aiCross = await fetch(origin + "/api/photo-analysis", {
+  method: "POST",
+  headers: {
+    ...headers,
+    Origin: "https://untrusted.invalid",
+    "Content-Type": "application/json",
+  },
+  body: "{}",
+});
+assert.equal(aiCross.status, 403);
+const aiStatus = await (await fetch(origin + "/api/photo-analysis")).json();
+assert.equal(typeof aiStatus.configured, "boolean");
+assert.equal("key" in aiStatus, false);
+if (!aiStatus.configured) {
+  const unavailable = await fetch(origin + "/api/photo-analysis", {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(unavailable.status, 503);
+}
 const positions = new Float32Array([
   -1, -1, -1, 1, -1, -1, 1, 1, -1, -1, 1, -1, -1, -1, 1, 1, -1, 1, 1, 1, 1, -1,
   1, 1,

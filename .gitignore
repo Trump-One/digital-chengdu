@@ -58,3 +58,7 @@ next-env.d.ts
 # Local diagnostics and design-tool session state
 *.tsbuildinfo
 /.impeccable/
+
+# Local Worker secrets
+.dev.vars
+.dev.vars.*

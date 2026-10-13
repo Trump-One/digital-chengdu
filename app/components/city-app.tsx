@@ -39,6 +39,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import PhotoStudio from "./photo-studio";
+import { PHOTO_BUILDING_IDS } from "../../lib/photo-recipe";
 import rawStreet from "../../public/geodata/street.json";
 import type {
   Street,
@@ -48,7 +50,10 @@ import type {
   SceneApi,
 } from "../../lib/types";
 import { applyFunianOverlay } from "../../lib/landmarks";
-const street = applyFunianOverlay(rawStreet as Street);
+const street = applyFunianOverlay({
+  ...rawStreet,
+  buildings: rawStreet.buildings.map((b) => ({ ...b })),
+} as Street);
 const defaultOptions: SceneOptions = {
   mode: "overview",
   trees: true,
@@ -59,6 +64,8 @@ const defaultOptions: SceneOptions = {
   selected: null,
   preview: null,
 };
+const photoTarget = street.buildings.find((b) => b.id === "way-659519928");
+if (photoTarget) photoTarget.name = "T1 对街建筑 · 名称待核实";
 const named = street.buildings.filter((b) => b.name !== "未命名建筑");
 const kindNames: Record<string, string> = {
   note: "资料补充",
@@ -136,9 +143,19 @@ export default function CityApp() {
   const [ready, setReady] = useState(false);
   const [sceneError, setSceneError] = useState("");
   const [panel, setPanel] = useState<
-    "explore" | "layers" | "community" | "about" | "building" | "contribute"
+    | "explore"
+    | "layers"
+    | "community"
+    | "about"
+    | "building"
+    | "contribute"
+    | "photo"
   >("explore");
   const [panelOpen, setPanelOpen] = useState(true);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("studio") === "photo")
+      setPanel("photo");
+  }, []);
   const [viewpoint, setViewpoint] = useState<
     "entrance" | "courtyard" | "terrace" | null
   >(null);
@@ -195,6 +212,10 @@ export default function CityApp() {
     else if (options.mode === "walk" && viewpoint && viewpoint !== "terrace")
       api.current?.visit(viewpoint);
   }, [viewpoint, options.mode, ready]);
+  useEffect(() => {
+    if (options.preview?.id.startsWith("photo-draft-") && ready)
+      api.current?.focus(options.preview.buildingId);
+  }, [options.preview, ready]);
   function visit(view: "entrance" | "courtyard" | "terrace") {
     if (view === "terrace") {
       setOptions((o) => ({ ...o, mode: "overview" }));
@@ -234,7 +255,9 @@ export default function CityApp() {
       if (!response.ok) throw new Error(body.error || "共建记录加载失败");
       setContributions(body.contributions);
       setOptions((o) =>
-        o.preview && !body.contributions.some((c) => c.id === o.preview?.id)
+        o.preview &&
+        !o.preview.id.startsWith("photo-draft-") &&
+        !body.contributions.some((c) => c.id === o.preview?.id)
           ? { ...o, preview: null }
           : o,
       );
@@ -487,6 +510,13 @@ export default function CityApp() {
                 <View size={18} />
                 查看 T1 四楼露台
               </button>
+              <button
+                className="secondary full"
+                onClick={() => setPanel("photo")}
+              >
+                <ImageIcon size={18} />
+                照片建模
+              </button>
               <p className="subtle">参照外观重建 · 尺寸与街景细节待实测</p>
             </div>
             <div className="street-stat">
@@ -571,7 +601,9 @@ export default function CityApp() {
             <p className="description">
               {selected.landmark
                 ? "吉泰路 666 号 · 福年广场外观重建"
-                : "天府三街示范区内的开放地图建筑"}
+                : PHOTO_BUILDING_IDS.includes(selected.id)
+                  ? "T1 对街 · 参照用户实拍完善外观"
+                  : "天府三街示范区内的开放地图建筑"}
             </p>
             <dl className="facts">
               <div>
@@ -593,7 +625,7 @@ export default function CityApp() {
               <div>
                 <dt>外墙与窗户</dt>
                 <dd>
-                  {selected.landmark
+                  {selected.landmark || PHOTO_BUILDING_IDS.includes(selected.id)
                     ? "参照实拍重建，非实景扫描"
                     : "示意材质，待完善"}
                 </dd>
@@ -602,7 +634,9 @@ export default function CityApp() {
             <p className="notice">
               {selected.landmark
                 ? "轮廓来自开放街图；楼群对应、幕墙分格与入口参照公开照片重建，尚未逐栋实测校准。双塔按公开资料约 160 米显示，原始地图楼层数保留在下载数据中。T1 东侧四楼露台按用户标注补充，尺寸与样式待实测。商铺、车辆和景观为示意。"
-                : "轮廓来自开放街图；外墙、树木与道路铺装为示意。楼层估算使用每层 3.2 米，不代表实测高度。"}
+                : PHOTO_BUILDING_IDS.includes(selected.id)
+                  ? "轮廓与总高度沿用地图数据；横向窗带、玻璃分格与石材裙楼参照用户照片人工完善。照片未覆盖楼顶和背面，退台尺寸、窗户位置与未拍到部分仍为近似。"
+                  : "轮廓来自开放街图；外墙、树木与道路铺装为示意。楼层估算使用每层 3.2 米，不代表实测高度。"}
             </p>
             {selected.landmark && (
               <>
@@ -624,6 +658,13 @@ export default function CityApp() {
                 </a>
               </>
             )}
+            <button
+              className="secondary full"
+              onClick={() => openPanel("photo")}
+            >
+              <ImageIcon size={17} />
+              用照片完善这栋建筑
+            </button>
             <button
               className="primary full"
               onClick={() => contribute(selected)}
@@ -892,6 +933,11 @@ export default function CityApp() {
               楼群位置与外观参考
               <ExternalLink size={13} />
             </a>
+            <h3>对街建筑的照片重建</h3>
+            <p className="description">
+              T1
+              对街的玻璃楼、横向窗带楼及低层裙楼依据用户提供的照片重建可见风格。总高度沿用地图估算；背面、楼顶和退台尺寸仍为示意。原始照片未公开发布。
+            </p>
             <h3>材质与光照</h3>
             <p className="description">
               铺装细节和阴天天空采用 Poly Haven 的 CC0 通用素材，
@@ -934,9 +980,32 @@ export default function CityApp() {
               </a>
             </div>
             <p className="notice">
-              当前为私有试用站点。共建功能已具备云端存储；开放给更多人前，需要调整站点访问权限。
+              网站可公开浏览，登录后可提交共建资料。AI
+              照片分析只在你主动提交并确认后进行。
             </p>
           </>
+        )}
+        {panel === "photo" && (
+          <PhotoStudio
+            buildings={street.buildings}
+            initialId={selected?.id || "way-659519928"}
+            signedIn={signedIn}
+            onPreview={(c) => {
+              setOptions((o) => ({
+                ...o,
+                mode: "overview",
+                preview: c,
+                community: true,
+                selected: c.buildingId,
+              }));
+            }}
+            onClear={() => setOptions((o) => ({ ...o, preview: null }))}
+            onSaved={async () => {
+              await refresh();
+              setPanel("community");
+              notify("模型已保存为共建提案，可预览或撤回");
+            }}
+          />
         )}
         {panel === "contribute" && (
           <>
@@ -949,6 +1018,13 @@ export default function CityApp() {
             </button>
             <h2 className="panel-heading">添上你知道的成都</h2>
             <p className="description">不用会建模，一条准确的信息就有用。</p>
+            <button
+              className="secondary full"
+              onClick={() => setPanel("photo")}
+            >
+              <ImageIcon size={18} />
+              上传照片，分析建模
+            </button>
             {!signedIn ? (
               <div className="sign-in-box">
                 <Users size={30} />

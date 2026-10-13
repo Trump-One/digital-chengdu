@@ -11,6 +11,8 @@ import {
   skyTexture,
   foliageTexture,
 } from "./funian.ts";
+import { createPhotoModel } from "./photo-model.ts";
+import { PHOTO_BUILDING_IDS, referenceRecipe } from "./photo-recipe.ts";
 import { FUNIAN_TERRACE, FUNIAN_VIEWS } from "./landmarks.ts";
 export function inside(x: number, z: number, points: number[][]) {
   let yes = false;
@@ -241,6 +243,22 @@ export function createScene(
     mesh.userData.buildingId = b.id;
     buildingGroup.add(mesh);
     meshes.push(mesh);
+    if (PHOTO_BUILDING_IDS.includes(b.id)) {
+      const detailed = createPhotoModel(b, referenceRecipe(b.id));
+      detailed.position.set(
+        (Math.min(...b.points.map((p) => p[0])) +
+          Math.max(...b.points.map((p) => p[0]))) /
+          2,
+        0.28,
+        (Math.min(...b.points.map((p) => p[1])) +
+          Math.max(...b.points.map((p) => p[1]))) /
+          2,
+      );
+      mesh.visible = false;
+      mesh.userData.photoBase = true;
+      buildingGroup.add(detailed);
+      detailGroups.set(b.id, detailed);
+    }
     if (b.landmark) {
       const detail = createFunianDetail(b);
       buildingGroup.add(detail);
@@ -519,7 +537,7 @@ export function createScene(
         }
       });
     });
-    meshes.forEach((m) => (m.visible = true));
+    meshes.forEach((m) => (m.visible = !m.userData.photoBase));
     detailGroups.forEach((g) => (g.visible = true));
   }
   async function showPreview() {
@@ -548,8 +566,8 @@ export function createScene(
         }),
       );
       previewGroup.add(m);
-      meshes.find((m) => m.userData.buildingId === b.id)!.visible =
-        !options.community;
+      const base = meshes.find((m) => m.userData.buildingId === b.id)!;
+      base.visible = !options.community && !base.userData.photoBase;
     }
     if (p.kind === "height" && options.community) {
       const detail = detailGroups.get(b.id);
@@ -574,9 +592,9 @@ export function createScene(
         model.scene.scale.setScalar(scale);
         const center = box.getCenter(new THREE.Vector3()).multiplyScalar(scale);
         model.scene.position.set(
-          b.center[0] - center.x,
+          (Math.max(...xs) + Math.min(...xs)) / 2 - center.x,
           -box.min.y * scale + 0.3,
-          b.center[1] - center.z,
+          (Math.max(...zs) + Math.min(...zs)) / 2 - center.z,
         );
         model.scene.traverse((o) => {
           if (o instanceof THREE.Mesh) {
@@ -587,8 +605,8 @@ export function createScene(
         previewGroup.add(model.scene);
         const detail = detailGroups.get(b.id);
         if (detail) detail.visible = !options.community;
-        meshes.find((m) => m.userData.buildingId === b.id)!.visible =
-          !options.community;
+        const base = meshes.find((m) => m.userData.buildingId === b.id)!;
+        base.visible = !options.community && !base.userData.photoBase;
       } catch (e) {
         onStatus(e instanceof Error ? e.message : "模型加载失败");
       }
@@ -640,11 +658,13 @@ export function createScene(
     }
     meshes.forEach(
       (m) =>
-        (m.visible = !(
-          next.community &&
-          previewGroup.children.length > 0 &&
-          next.preview?.buildingId === m.userData.buildingId
-        )),
+        (m.visible =
+          !m.userData.photoBase &&
+          !(
+            next.community &&
+            previewGroup.children.length > 0 &&
+            next.preview?.buildingId === m.userData.buildingId
+          )),
     );
     detailGroups.forEach((g, id) => {
       g.visible = !(
@@ -806,6 +826,17 @@ export function createScene(
     focus: (id) => {
       const b = street.buildings.find((b) => b.id === id);
       if (!b) return;
+      if (options.mode === "overview" && PHOTO_BUILDING_IDS.includes(b.id)) {
+        travel(
+          new THREE.Vector3(
+            b.center[0] - 65,
+            b.height * 0.45 + 12,
+            b.center[1] - 95,
+          ),
+          new THREE.Vector3(b.center[0], b.height * 0.22, b.center[1]),
+        );
+        return;
+      }
       if (options.mode === "overview")
         travel(
           new THREE.Vector3(

@@ -11,8 +11,8 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   return Response.json(
     {
-      configured: !!env.OPENAI_API_KEY,
-      model: env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      configured: !!env.OPENROUTER_API_KEY,
+      model: env.OPENROUTER_VISION_MODEL || "openai/gpt-4.1-mini",
     },
     { headers: { "Cache-Control": "no-store" } },
   );
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   const user = await getChatGPTUser();
   if (!user)
     return Response.json({ error: "请先登录后使用照片分析" }, { status: 401 });
-  if (!env.OPENAI_API_KEY)
+  if (!env.OPENROUTER_API_KEY)
     return Response.json(
       { error: "网站尚未配置视觉 AI 服务，请联系维护者" },
       { status: 503 },
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const b = street.buildings.find((b) => b.id === data.buildingId);
     if (!b) throw new Error("请选择示范区内的建筑");
     if (data.consent !== true)
-      throw new Error("请确认将框选照片交给 OpenAI 分析");
+      throw new Error("请确认将框选照片交给 OpenRouter 及其模型服务商分析");
     if (
       typeof data.image !== "string" ||
       !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(data.image)
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
   ).run();
   const now = Date.now(),
     day = now - 86400000;
-  const configured = Number(env.OPENAI_PHOTO_DAILY_LIMIT || 20);
+  const configured = Number(env.PHOTO_DAILY_LIMIT || 20);
   const limit = Number.isFinite(configured)
     ? Math.max(1, Math.min(200, Math.floor(configured)))
     : 20;
@@ -92,13 +92,13 @@ export async function POST(request: Request) {
     );
   try {
     const recipe = await analyzeBuildingPhoto(
-      env.OPENAI_API_KEY,
-      env.OPENAI_VISION_MODEL || "gpt-4.1-mini",
+      env.OPENROUTER_API_KEY,
+      env.OPENROUTER_VISION_MODEL || "openai/gpt-4.1-mini",
       image,
       context,
     );
     return Response.json(
-      { recipe, model: env.OPENAI_VISION_MODEL || "gpt-4.1-mini" },
+      { recipe, model: env.OPENROUTER_VISION_MODEL || "openai/gpt-4.1-mini" },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {

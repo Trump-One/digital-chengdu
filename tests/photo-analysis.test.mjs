@@ -14,38 +14,47 @@ const recipe = referenceRecipe("way-659519928");
 const completed = (r) =>
   new Response(
     JSON.stringify({
-      status: "completed",
-      output: [{ content: [{ type: "output_text", text: JSON.stringify(r) }] }],
+      choices: [
+        { finish_reason: "stop", message: { content: JSON.stringify(r) } },
+      ],
     }),
   );
-test("vision request uses a fixed endpoint, structured output, nonstored images and bounded context", async () => {
+test("vision request uses a fixed endpoint, structured output, privacy routing and bounded context", async () => {
   let request;
   const result = await analyzeBuildingPhoto(
     "test-secret",
-    "gpt-4.1-mini",
+    "openai/gpt-4.1-mini",
     "data:image/jpeg;base64,/9j/",
     "x".repeat(2000),
     async (url, init) => {
-      assert.equal(url, "https://api.openai.com/v1/responses");
+      assert.equal(url, "https://openrouter.ai/api/v1/chat/completions");
       request = JSON.parse(init.body);
       return completed(recipe);
     },
   );
   assert.deepEqual(result, recipe);
-  assert.equal(request.store, false);
-  assert.equal(request.text.format.strict, true);
-  assert.equal(request.input[0].content[0].text.length, 1000);
-  assert.ok(request.max_output_tokens <= 2200);
+  assert.equal(request.provider.data_collection, "deny");
+  assert.equal(request.provider.require_parameters, true);
+  assert.equal(
+    request.messages[1].content[1].image_url.url,
+    "data:image/jpeg;base64,/9j/",
+  );
+  assert.equal(request.response_format.json_schema.strict, true);
+  assert.equal(request.messages[1].content[0].text.length, 1000);
+  assert.ok(request.max_tokens <= 2200);
 });
 test("refusal, incomplete output and invalid geometry are rejected rather than rendered", async () => {
   for (const response of [
     new Response(
       JSON.stringify({
-        status: "completed",
-        output: [{ content: [{ type: "refusal" }] }],
+        choices: [{ finish_reason: "stop", message: { refusal: "refused" } }],
       }),
     ),
-    new Response(JSON.stringify({ status: "incomplete" })),
+    new Response(
+      JSON.stringify({
+        choices: [{ finish_reason: "length", message: { content: "{}" } }],
+      }),
+    ),
     completed({ ...recipe, setback: 999 }),
     completed({ ...recipe, buildingVisible: false }),
     completed({ ...recipe, glassColor: "javascript:alert(1)" }),
@@ -70,6 +79,8 @@ test("refusal, incomplete output and invalid geometry are rejected rather than r
 test("provider credential and billing errors produce sanitized messages", async () => {
   for (const [upstream, expected] of [
     [401, 503],
+    [403, 503],
+    [402, 503],
     [429, 429],
     [500, 502],
   ])
@@ -85,6 +96,22 @@ test("provider credential and billing errors produce sanitized messages", async 
         ),
       (e) => e.status === expected && !e.message.includes("secret"),
     );
+});
+test("OpenRouter embedded errors never become a usable model", async () => {
+  await assert.rejects(
+    () =>
+      analyzeBuildingPhoto(
+        "test-secret",
+        "model",
+        "image",
+        "",
+        async () =>
+          new Response(
+            JSON.stringify({ error: { message: "private upstream details" } }),
+          ),
+      ),
+    (e) => e.status === 502 && !e.message.includes("private"),
+  );
 });
 const street = JSON.parse(
   readFileSync(new URL("../public/geodata/street.json", import.meta.url)),

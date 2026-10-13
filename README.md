@@ -79,10 +79,10 @@ https://www.openstreetmap.org/copyright
 
 ## 照片分析与建模
 
-- 探索侧栏 → 照片建模：选择地图建筑，上传 JPG/PNG/WebP，框选单栋立面，登录并确认发送给 OpenAI 后分析。浏览器去除照片元数据并压缩框选图；原图不会自动上传到公开资产。
-- 服务端通过 OpenAI Responses API（默认 `gpt-4.1-mini`，`store: false`）返回受限 JSON：立面风格、材质色、窗格、裙楼和退台近似尺寸，以及观察结果和不确定部分。只执行本站的参数化建模代码，不执行模型输出代码。
+- 探索侧栏 → 照片建模：选择地图建筑，上传 JPG/PNG/WebP，框选单栋立面，登录并确认发送给 OpenRouter 及其模型服务商后分析。浏览器去除照片元数据并压缩框选图；原图不会自动上传到公开资产。
+- 服务端通过 OpenRouter Chat Completions API（默认 `openai/gpt-4.1-mini`，要求支持结构化输出并设置 `data_collection: "deny"`）返回受限 JSON：立面风格、材质色、窗格、裙楼和退台近似尺寸，以及观察结果和不确定部分。只执行本站的参数化建模代码，不执行模型输出代码。
 - 用户可调整参数并生成 GLB 预览，确认且声明分享权利后保存为已有共建模型提案。原始地图高度/轮廓保持不变；背面、楼顶和不完整照片中的结构仍是估计。共建不会自动覆盖公共基础地图。
 - T1 对街模型的初始参考来自用户提供的照片：右侧玻璃分格楼（way-659519928）、左侧横向窗带楼（way-659519927）及相接裙楼（way-666608905）。这部分是人工解读照片的初始重建，不冒称已经运行线上 AI 分析；原照片不进入仓库或公共资产。
-- 仅服务器设置 `OPENAI_API_KEY`（secret）；可用 `OPENAI_VISION_MODEL` 更换视觉模型。`OPENAI_PHOTO_DAILY_LIMIT` 默认 20，最高 200；每人滚动 24 小时 5 次、每分钟 2 次。请求先在 D1 原子预留次数，失败也占次数，不自动重试。照片/输出不存进限额表；`photo_analysis_usage` 首次使用自动建表，只记录调用 ID、用户 ID、时间。
+- 仅服务器设置 `OPENROUTER_API_KEY`（secret）；可用 `OPENROUTER_VISION_MODEL` 更换视觉模型。`PHOTO_DAILY_LIMIT` 默认 20，最高 200；每人滚动 24 小时 5 次、每分钟 2 次。请求先在 D1 原子预留次数，失败也占次数，不自动重试。照片/输出不存进限额表；`photo_analysis_usage` 首次使用自动建表，只记录调用 ID、用户 ID、时间。
 - 本地密钥文件 `.env.photo-ai.local` 已被 `.gitignore` 排除。部署时写入 Sites 密钥配置，不能使用 VITE_/NEXT_PUBLIC_ 前缀，也不能提交密钥。开发运行可在忽略的 `.dev.vars` 配置，并确保该文件不入库。
-- 官方接口文档：[图像输入](https://developers.openai.com/api/docs/guides/images-vision)、[结构化输出](https://developers.openai.com/api/docs/guides/structured-outputs)。
+- 官方接口文档：[模型与图像能力](https://openrouter.ai/openai/gpt-4.1-mini)、[结构化输出](https://openrouter.ai/docs/guides/features/structured-outputs)。

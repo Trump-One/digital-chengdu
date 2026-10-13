@@ -95,6 +95,7 @@ export default function PhotoStudio({
     setError("");
     setBusy(true);
     setStatus("正在分析建筑结构…");
+    setRecipe(null);
     setBlob(null);
     setAccepted(false);
     onClear();
@@ -224,7 +225,7 @@ export default function PhotoStudio({
           "。不确定部分：" +
           recipe.uncertainties.join("；")
         ).slice(0, 1450),
-        source: source + "；OpenAI 视觉分析，人工确认的参数化模型",
+        source: source + "；OpenRouter 视觉分析，人工确认的参数化模型",
         rights: "yes",
       }))
         form.set(k, v);
@@ -423,8 +424,8 @@ export default function PhotoStudio({
             onChange={(e) => setConsent(e.target.checked)}
           />
           <span>
-            同意将框选照片发送给 OpenAI
-            分析。仅分析时发送压缩图；保存共建时发布生成的模型。
+            同意将框选照片发送给 OpenRouter
+            及其模型服务商分析。仅分析时发送压缩图；保存共建时发布生成的模型。
           </span>
         </label>
         <button
